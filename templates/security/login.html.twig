@@ -1,0 +1,55 @@
+{% extends '@EasyAdmin/page/login.html.twig' %}
+
+{# -------------------------
+   Variables d'apparence
+   ------------------------- #}
+{% set page_title = 'Connexion à l’admin' %}
+{# Optionnel : logo (image ou texte) #}
+{# {% set app_logo = asset('build/logo.svg') %} #}
+{# {% set page_title = '<img src="' ~ asset('build/logo.svg') ~ '" alt="Logo" height="40">' %} #}
+
+{# -------------------------
+   Champs et libellés
+   ------------------------- #}
+{% set username_label = 'Email' %}
+{% set username_parameter = 'email' %}   {# ✅ correspond à notre authenticator #}
+{% set password_label = 'Mot de passe' %}
+{% set sign_in_label = 'Se connecter' %}
+
+{# -------------------------
+   Sécurité
+   ------------------------- #}
+{% set csrf_token_intention = 'authenticate' %}
+
+{# -------------------------
+   Ciblage post-auth
+   ------------------------- #}
+{# Laisse vide pour que l’authenticator utilise la targetPath (#getTargetPath) ou admin_dashboard par défaut #}
+{# {% set target_path = path('admin_dashboard') %} #}
+
+{# -------------------------
+   Remember me
+   ------------------------- #}
+{% set remember_me_enabled = true %}
+{% set remember_me_parameter = '_remember_me' %}
+{% set remember_me_checked = false %}
+{% set remember_me_label = 'Se souvenir de moi' %}
+
+{# -------------------------
+   Mot de passe oublié (optionnel)
+   ------------------------- #}
+{# {% set forgotten_password_enabled = true %}
+{% set forgotten_password_path = path('app_forgot_password_request') %}
+{% set forgotten_password_label = 'Mot de passe oublié ?' %} #}
+
+{# -------------------------
+   Gestion des erreurs :
+   EasyAdmin affiche automatiquement le message si
+   la variable `error` est fournie par le contrôleur.
+   ------------------------- #}
+
+{% block page_footer %}
+  <div style="font-size: 12px; opacity: .7; margin-top: 1rem;">
+    © {{ "now"|date("Y") }} — Votre société
+  </div>
+{% endblock %}
