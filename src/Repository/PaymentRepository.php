@@ -2,9 +2,10 @@
 
 namespace App\Repository;
 
+use App\Entity\Invoice;
 use App\Entity\Payment;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 
 /**
  * @extends ServiceEntityRepository<Payment>
@@ -16,28 +17,15 @@ class PaymentRepository extends ServiceEntityRepository
         parent::__construct($registry, Payment::class);
     }
 
-    //    /**
-    //     * @return Payment[] Returns an array of Payment objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('p')
-    //            ->andWhere('p.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('p.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    /** Somme des paiements d’une facture (centimes). */
+    public function sumForInvoice(Invoice $invoice): int
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->select('COALESCE(SUM(p.amountCents), 0) as total')
+            ->andWhere('p.invoice = :inv')
+            ->setParameter('inv', $invoice);
 
-    //    public function findOneBySomeField($value): ?Payment
-    //    {
-    //        return $this->createQueryBuilder('p')
-    //            ->andWhere('p.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+        // DQL renvoie un string; caster en int
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
 }

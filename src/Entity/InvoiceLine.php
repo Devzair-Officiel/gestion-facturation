@@ -7,6 +7,7 @@
 namespace App\Entity;
 
 use App\Repository\InvoiceLineRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: InvoiceLineRepository::class)]
@@ -94,6 +95,30 @@ class InvoiceLine
     public function setDiscountCents($discountCents): static
     {
         $this->discountCents = $discountCents;
+
+        return $this;
+    }
+
+    public function getInvoice(): ?Invoice
+    {
+        return $this->invoice;
+    }
+
+    public function setInvoice(?Invoice $invoice): static
+    {
+        $this->invoice = $invoice;
+
+        return $this;
+    }
+
+    public function getTaxRate(): ?TaxRate
+    {
+        return $this->taxRate;
+    }
+
+    public function setTaxRate(?TaxRate $taxRate): static
+    {
+        $this->taxRate = $taxRate;
 
         return $this;
     }

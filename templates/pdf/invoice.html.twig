@@ -1,0 +1,318 @@
+{# ============================================
+   Template: pdf/invoice.html.twig
+   Variables attendues:
+   - company  : App\Entity\Company
+   - invoice  : App\Entity\Invoice (avec invoice.lines)
+   - customer : App\Entity\Customer (facultatif; sinon invoice.customer)
+   ============================================ #}
+{% macro money(cents, currency) %}
+	{% set amount = ((cents ?? 0) / 100) %}
+	{% if currency == 'EUR' %}
+		{{ amount|number_format(2, ',', ' ') ~ ' €' }}
+	{% else %}
+		{{ amount|number_format(2, ',', ' ') ~ ' ' ~ currency }}
+	{% endif %}
+{% endmacro %}
+
+{% import _self as ui %}
+
+<!DOCTYPE html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8">
+		<title>Facture
+			{{ invoice.number }}</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<style>
+			html,
+			body {
+				font-family: Arial, Helvetica, sans-serif;
+				font-size: 12px;
+				color: #111;
+			}
+			.container {
+				width: 100%;
+				max-width: 760px;
+				margin: 0 auto;
+			}
+			.flex {
+				display: flex;
+				gap: 24px;
+			}
+			.space-between {
+				display: flex;
+				justify-content: space-between;
+				align-items: flex-start;
+			}
+			.muted {
+				color: #666;
+			}
+			h1 {
+				font-size: 22px;
+				margin: 0 0 6px;
+			}
+			h2 {
+				font-size: 14px;
+				margin: 0 0 6px;
+			}
+			.box {
+				border: 1px solid #ddd;
+				padding: 12px;
+				border-radius: 6px;
+			}
+			.mt-8 {
+				margin-top: 8px;
+			}
+			.mt-16 {
+				margin-top: 16px;
+			}
+			.mt-24 {
+				margin-top: 24px;
+			}
+			.mb-0 {
+				margin-bottom: 0;
+			}
+
+			table {
+				width: 100%;
+				border-collapse: collapse;
+			}
+			th,
+			td {
+				padding: 8px;
+				border-bottom: 1px solid #eee;
+				vertical-align: top;
+			}
+			th {
+				background: #fafafa;
+				text-align: left;
+				font-weight: 600;
+				border-top: 1px solid #eee;
+			}
+			tfoot td {
+				border-top: 1px solid #ddd;
+			}
+			.text-right {
+				text-align: right;
+			}
+			.text-center {
+				text-align: center;
+			}
+			.small {
+				font-size: 10px;
+			}
+			.totals td {
+				padding: 6px 8px;
+			}
+			.totals .label {
+				text-align: right;
+			}
+			.totals .value {
+				text-align: right;
+				width: 140px;
+			}
+
+			/* Pour wkhtmltopdf : éviter les sauts disgracieux */
+			.avoid-break {
+				page-break-inside: avoid;
+			}
+			.footer {
+				position: fixed;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				font-size: 10px;
+				color: #777;
+				border-top: 1px solid #eee;
+				padding: 6px 0;
+			}
+		</style>
+	</head>
+	<body>
+
+		<div class="container">
+			<div class="space-between">
+				<div>
+					<h1>FACTURE</h1>
+					<div class="muted">N°
+						{{ invoice.number }}</div>
+				</div>
+				<div class="text-right">{# Place ton logo si besoin #}
+					{# <img src="{{ asset('build/logo.png') }}" alt="Logo" height="48"> #}
+				</div>
+			</div>
+
+			<div class="flex mt-16">
+				<div class="box" style="flex:1">
+					<h2 class="mb-0">{{ company.legalName ?? company.name }}</h2>
+					<div class="small">
+						{% set a = company.address ?? {} %}
+						{{ a.street ?? '' }}<br>
+						{{ a.zip ?? '' }}
+						{{ a.city ?? '' }}
+						{% if a.country is defined and a.country %},
+							{{ a.country }}
+						{% endif %}<br>
+						{% if company.email %}Email:
+							{{ company.email }}<br>
+						{% endif %}
+						{% if company.phone %}Tél:
+							{{ company.phone }}<br>
+						{% endif %}
+						{% if company.siren %}SIREN:
+							{{ company.siren }}
+							{% if company.rcsNumber %}
+								— RCS:
+								{{ company.rcsNumber }}
+							{% endif %}<br>
+						{% endif %}
+						{% if company.vatNumber %}TVA intracom:
+							{{ company.vatNumber }}<br>
+						{% endif %}
+						Devise par défaut:
+						{{ company.defaultCurrency }}
+					</div>
+				</div>
+
+				<div class="box" style="flex:1">
+					<h2 class="mb-0">Facturer à</h2>
+					{% set cust = customer ?? invoice.customer %}
+					<div class="small">
+						<strong>{{ cust.name }}</strong><br>
+						{% set b = cust.billingAddress ?? {} %}
+						{{ b.street ?? '' }}<br>
+						{{ b.zip ?? '' }}
+						{{ b.city ?? '' }}
+						{% if b.country is defined and b.country %},
+							{{ b.country }}
+						{% endif %}<br>
+						{% if cust.vatNumber %}TVA intracom client:
+							{{ cust.vatNumber }}<br>
+						{% endif %}
+						{% if cust.email %}Email:
+							{{ cust.email }}
+						{% endif %}
+					</div>
+				</div>
+
+				<div class="box" style="flex:1">
+					<h2 class="mb-0">Détails</h2>
+					<div class="small">
+						Date d’émission :
+						{{ invoice.issueDate|date('d/m/Y') }}<br>
+						Date d’échéance :
+						{{ invoice.dueDate|date('d/m/Y') }}<br>
+						Statut :
+						{{ invoice.status|capitalize }}
+					</div>
+				</div>
+			</div>
+
+			<div class="mt-16 avoid-break">
+				<table>
+					<thead>
+						<tr>
+							<th style="width:40%">Désignation</th>
+							<th class="text-right" style="width:10%">Qté</th>
+							<th class="text-right" style="width:15%">PU HT</th>
+							<th class="text-right" style="width:10%">Remise</th>
+							<th class="text-right" style="width:10%">TVA</th>
+							<th class="text-right" style="width:15%">Total HT</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for line in invoice.lines %}
+							{# Calcul simple côté Twig (voir note en haut) #}
+							{% set qty = line.quantity|default('1')|float %}
+							{% set unit = (line.unitPriceCents ?? 0) %}
+							{% set gross = (qty * unit)|round(0, 'common') %}
+							{% set discount = (line.discountCents ?? 0) %}
+							{% set net = gross - discount %}
+							{% set rate = (line.taxRate ? line.taxRate.percent : '0') %}
+							<tr>
+								<td>{{ line.designation }}</td>
+								<td class="text-right">{{ qty|number_format(3, ',', ' ') }}</td>
+								<td class="text-right">{{ ui.money(unit, invoice.currency) }}</td>
+								<td class="text-right">
+									{% if discount > 0 %}
+										-{{ ui.money(discount, invoice.currency) }}
+									{% else %}
+										—
+									{% endif %}
+								</td>
+								<td class="text-right">
+									{% set percent = (rate * 100)|number_format(2, ',', ' ') %}
+									{{ percent }}
+									%
+								</td>
+								<td class="text-right">{{ ui.money(net, invoice.currency) }}</td>
+							</tr>
+						{% else %}
+							<tr>
+								<td colspan="6" class="text-center muted">Aucune ligne</td>
+							</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+
+			<div class="mt-16 flex avoid-break">
+				<div style="flex:1">
+					<div class="box small">
+						<strong>Conditions de paiement</strong><br>
+						Virement bancaire à réception de facture.<br>
+						{% if company.iban %}IBAN :
+							{{ company.iban }}<br>
+						{% endif %}
+						{% if company.bic %}BIC :
+							{{ company.bic }}<br>
+						{% endif %}
+						Pénalités de retard : taux légal + indemnité forfaitaire 40 € (art. L441-10 C. com.).<br>
+						{% if invoice.legalMentions %}
+							<br><strong>Mentions :</strong><br>
+							{% for k, v in invoice.legalMentions %}
+								-
+								{{ k }}
+								:
+								{{ v }}<br>
+							{% endfor %}
+						{% endif %}
+					</div>
+				</div>
+
+				<div style="flex:1">
+					<table class="totals" style="width:100%">
+						<tr>
+							<td class="label">Total HT</td>
+							<td class="value">{{ ui.money(invoice.totalNet, invoice.currency) }}</td>
+						</tr>
+						<tr>
+							<td class="label">TVA</td>
+							<td class="value">{{ ui.money(invoice.totalVat, invoice.currency) }}</td>
+						</tr>
+						<tr>
+							<td class="label">
+								<strong>Total TTC</strong>
+							</td>
+							<td class="value">
+								<strong>{{ ui.money(invoice.totalGross, invoice.currency) }}</strong>
+							</td>
+						</tr>
+					</table>
+				</div>
+			</div>
+
+			<div class="mt-24 small muted">
+				Document généré le
+				{{ "now"|date("d/m/Y H:i") }}.
+			</div>
+		</div>
+
+		<div class="footer text-center">
+			{{ company.legalName ?? company.name }}
+			—
+			{{ company.website ?? '' }}
+		</div>
+
+	</body>
+</html>

@@ -2,9 +2,11 @@
 
 namespace App\Repository;
 
+use App\Entity\Company;
 use App\Entity\Sequence;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\Persistence\ManagerRegistry;
+use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 
 /**
  * @extends ServiceEntityRepository<Sequence>
@@ -16,28 +18,30 @@ class SequenceRepository extends ServiceEntityRepository
         parent::__construct($registry, Sequence::class);
     }
 
-    //    /**
-    //     * @return Sequence[] Returns an array of Sequence objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('s')
-    //            ->andWhere('s.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('s.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    /**
+     * Incrémente et retourne le prochain numéro pour (company, year).
+     * Verrou pessimiste + transaction pour éviter les collisions concurrentes.
+     */
+    public function reserveNextNumber(Company $company, int $year): int
+    {
+        $em = $this->getEntityManager();
 
-    //    public function findOneBySomeField($value): ?Sequence
-    //    {
-    //        return $this->createQueryBuilder('s')
-    //            ->andWhere('s.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+        return $em->wrapInTransaction(function () use ($em, $company, $year) {
+            /** @var Sequence|null $seq */
+            $seq = $this->findOneBy(['company' => $company, 'year' => $year]);
+
+            if ($seq) {
+                $em->lock($seq, LockMode::PESSIMISTIC_WRITE);
+            } else {
+                $seq = new Sequence($company, $year);
+                $em->persist($seq);
+            }
+
+            $next = $seq->getLastNumber() + 1;
+            $seq->setLastNumber($next);
+
+            // flush géré par wrapInTransaction
+            return $next;
+        });
+    }
 }
