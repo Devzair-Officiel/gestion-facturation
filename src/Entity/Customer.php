@@ -3,6 +3,7 @@
 /**
  * client facturé par une Company
  */
+
 namespace App\Entity;
 
 use App\Repository\CustomerRepository;
@@ -104,6 +105,18 @@ class Customer
     public function setVatNumber($vatNumber): static
     {
         $this->vatNumber = $vatNumber;
+
+        return $this;
+    }
+
+    public function getCompany(): Company
+    {
+        return $this->company;
+    }
+
+    public function setCompany($company): static
+    {
+        $this->company = $company;
 
         return $this;
     }

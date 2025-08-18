@@ -6,6 +6,7 @@ use App\Repository\UserRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '`user`')]
@@ -41,16 +42,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private ?string $password = null;
 
+    /**
+     * Mot de passe en clair pour les formulaires (non persisté).
+     * NE PAS ajouter d'attribut ORM ici.
+     */
+    #[Assert\Length(min: 6, max: 4096)]
+    private ?string $plainPassword = null;
+
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: false)]
-    private Company $company;
-
-
-
-    public function __construct(Company $company)
-    {
-        $this->company = $company;
-    }
+    #[ORM\JoinColumn(nullable: true)]
+    private ?Company $company = null;
 
 
     public function getId(): ?int
@@ -128,11 +129,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $data;
     }
 
-    #[\Deprecated]
-    public function eraseCredentials(): void
-    {
-        // @deprecated, to be removed when upgrading to Symfony 8
-    }
 
     public function getFirstName(): string
     {
@@ -158,6 +154,22 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    public function getPlainPassword(): ?string
+    {
+        return $this->plainPassword;
+    }
+
+    public function setPlainPassword(?string $plainPassword): self
+    {
+        $this->plainPassword = $plainPassword;
+        return $this;
+    }
+
+    public function eraseCredentials(): void
+    {
+        $this->plainPassword = null;
+    }
+
     public function isActive(): bool
     {
         return $this->isActive;
@@ -166,6 +178,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setIsActive($isActive): static
     {
         $this->isActive = $isActive;
+
+        return $this;
+    }
+
+    public function getCompany(): ?Company
+    {
+        return $this->company;
+    }
+
+    public function setCompany(?Company $company): static
+    {
+        $this->company = $company;
 
         return $this;
     }

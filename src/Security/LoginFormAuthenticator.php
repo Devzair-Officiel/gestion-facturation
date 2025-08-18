@@ -49,7 +49,7 @@ final class LoginFormAuthenticator extends AbstractLoginFormAuthenticator
         }
 
         // Sinon, tableau de bord par défaut
-        return new RedirectResponse($this->router->generate('admin_dashboard'));
+        return new RedirectResponse($this->router->generate('admin'));
     }
 
     protected function getLoginUrl(Request $request): string

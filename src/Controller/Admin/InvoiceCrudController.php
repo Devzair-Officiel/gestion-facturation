@@ -1,5 +1,5 @@
 <?php
-// src/Controller/Admin/InvoiceCrudController.php
+
 namespace App\Controller\Admin;
 
 use App\Entity\Invoice;
