@@ -16,7 +16,7 @@ class Customer
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column]
+    #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
     #[ORM\Column(length: 160)]
@@ -35,14 +35,8 @@ class Customer
     private ?string $vatNumber = null; // TVA intracom client (B2B)
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: false)]
-    private Company $company;
-
-    public function __construct(Company $company, string $title)
-    {
-        $this->company = $company;
-        $this->title = $title;
-    }
+    #[ORM\JoinColumn(nullable: true)]
+    private ?Company $company = null;
 
     public function getId(): ?int
     {
@@ -109,15 +103,20 @@ class Customer
         return $this;
     }
 
-    public function getCompany(): Company
+    public function getCompany(): ?Company
     {
         return $this->company;
     }
 
-    public function setCompany($company): static
+    public function setCompany(?Company $company): static
     {
         $this->company = $company;
 
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        return $this->title ?? 'Client';
     }
 }

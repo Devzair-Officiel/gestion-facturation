@@ -47,9 +47,7 @@ final class UserCrudController extends AbstractCrudController
         $roles = ChoiceField::new('roles', 'Rôles')
             ->setChoices([
                 'Utilisateur' => 'ROLE_USER',
-                'Compta'      => 'ROLE_ACCOUNTANT',
-                'Admin'       => 'ROLE_ADMIN',
-                // ajoute d’autres rôles si besoin
+                'Admin'       => 'ROLE_ADMIN'
             ])
             ->allowMultipleChoices()
             ->renderAsBadges();
@@ -71,9 +69,8 @@ final class UserCrudController extends AbstractCrudController
         // NOTE : si ta Company a "name" et pas "title", remplace 'title' par 'name'.
         $company = AssociationField::new('company', 'Société')
             ->onlyOnForms()
-            ->setFormTypeOption('choice_label', 'title')
-            ->setFormTypeOption('required', true);
-
+            ->setFormTypeOption('choice_label', 'title');
+            
         if (!$this->isGranted('ROLE_SUPER_ADMIN')) {
             // Visible mais non modifiable pour les admins classiques
             $company->setFormTypeOption('disabled', true);

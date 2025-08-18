@@ -23,20 +23,23 @@ use Doctrine\Common\Collections\ArrayCollection;
 class Invoice
 {
     #[ORM\Id]
-    #[ORM\GeneratedValue]
     #[ORM\Column(type: 'uuid', unique: true)]
-    private Uuid $id;
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
+    private ?Uuid $id = null;
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: false)]
-    private Company $company;
+    #[ORM\JoinColumn(nullable: true)]
+    private ?Company $company = null;
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: false)]
-    private Customer $customer;
+    #[ORM\JoinColumn(nullable: true)]
+    private ?Customer $customer = null;
 
-    #[ORM\Column(length: 32)]
-    private string $number; // ex: "2025-000123" (défini à l’émission)
+    private ?string $customerName = null;
+
+    #[ORM\Column(type: 'string', length: 60, nullable: false)]
+    private ?string $number = null; // ex: "2025-000123" (défini à l’émission)
 
     #[ORM\Column(type: 'string', enumType: InvoiceStatus::class)]
     private InvoiceStatus $status = InvoiceStatus::DRAFT;
@@ -70,17 +73,17 @@ class Invoice
     #[ORM\OneToMany(mappedBy: 'invoice', targetEntity: InvoiceLine::class, cascade: ['persist'], orphanRemoval: true)]
     private Collection $lines;
 
-    public function __construct(Company $company, Customer $customer)
+    public function __construct(?Company $company = null, ?Customer $customer = null)
     {
         $this->company = $company;
         $this->customer = $customer;
         $this->issueDate = new \DateTimeImmutable();
         $this->dueDate = $this->issueDate->modify('+30 days');
         $this->lines = new ArrayCollection();
-        $this->number = 'DRAFT-' . $this->id->toRfc4122(); // provisoire; remplacé à l’émission
+        $this->number = 'DRAFT-' . Uuid::v4()->toRfc4122();
     }
 
-    public function getId(): Uuid
+    public function getId(): ?Uuid
     {
         return $this->id;
     }
@@ -230,6 +233,15 @@ class Invoice
         return $this;
     }
 
+    public function getCustomerName(): ?string
+    {
+        return $this->customer?->getTitle() ?? $this->customerName;
+    }
+
+    public function setCustomerName(?string $name): void
+    {
+        $this->customerName = $name;
+    }
 
     /** Helpers lignes **/
     public function addLine(InvoiceLine $line): self

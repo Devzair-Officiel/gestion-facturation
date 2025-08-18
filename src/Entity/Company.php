@@ -227,4 +227,9 @@ class Company
 
         return $this;
     }
+
+    public function __toString(): string
+    {
+        return $this->legalName ?? $this->name ?? 'Société';
+    }
 }

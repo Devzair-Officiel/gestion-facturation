@@ -29,13 +29,13 @@ final class PdfRenderer
     public function renderToPdf(string $html, ?string $outputAbsolutePath = null): string
     {
         $fs = new Filesystem();
-        $out = $outputAbsolutePath ?? ($this->projectDir . '/var/invoices/' . uniqid('invoice_', true) . '.pdf');
+        $out = $outputAbsolutePath ?? ($this->projectDir . '/public/invoices/' . uniqid('invoice_', true) . '.pdf');
         $dir = \dirname($out);
         if (!$fs->exists($dir)) {
             $fs->mkdir($dir, 0775);
         }
 
-        $tmpHtml = $this->projectDir . '/var/invoices/' . uniqid('invoice_', true) . '.html';
+        $tmpHtml = $this->projectDir . '/public/invoices/' . uniqid('invoice_', true) . '.html';
         file_put_contents($tmpHtml, $html);
 
         $process = new Process([$this->wkhtmltopdf, '-q', '--encoding', 'utf-8', '--page-size', 'A4', $tmpHtml, $out]);
@@ -45,6 +45,7 @@ final class PdfRenderer
         if (!$process->isSuccessful()) {
             throw new ProcessFailedException($process);
         }
+
         return $out;
     }
 

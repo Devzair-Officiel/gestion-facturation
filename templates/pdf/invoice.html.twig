@@ -144,7 +144,7 @@
 
 			<div class="flex mt-16">
 				<div class="box" style="flex:1">
-					<h2 class="mb-0">{{ company.legalName ?? company.name }}</h2>
+					<h2 class="mb-0">{{ company.legalName ?? company.title }}</h2>
 					<div class="small">
 						{% set a = company.address ?? {} %}
 						{{ a.street ?? '' }}<br>
@@ -178,7 +178,7 @@
 					<h2 class="mb-0">Facturer à</h2>
 					{% set cust = customer ?? invoice.customer %}
 					<div class="small">
-						<strong>{{ cust.name }}</strong><br>
+						<strong>{{ cust.title }}</strong><br>
 						{% set b = cust.billingAddress ?? {} %}
 						{{ b.street ?? '' }}<br>
 						{{ b.zip ?? '' }}
@@ -203,7 +203,8 @@
 						Date d’échéance :
 						{{ invoice.dueDate|date('d/m/Y') }}<br>
 						Statut :
-						{{ invoice.status|capitalize }}
+						{{ invoice.status.value|capitalize }}
+
 					</div>
 				</div>
 			</div>
@@ -222,13 +223,16 @@
 					</thead>
 					<tbody>
 						{% for line in invoice.lines %}
-							{# Calcul simple côté Twig (voir note en haut) #}
-							{% set qty = line.quantity|default('1')|float %}
-							{% set unit = (line.unitPriceCents ?? 0) %}
+							{# Quantité en nombre (forcer numérique avec * 1) #}
+							{% set qty = (line.quantity ?? 1) * 1 %}
+							{# Prix unitaire en centimes, forcer numérique avec + 0 #}
+							{% set unit = (line.unitPriceCents ?? 0) + 0 %}
 							{% set gross = (qty * unit)|round(0, 'common') %}
-							{% set discount = (line.discountCents ?? 0) %}
+							{% set discount = (line.discountCents ?? 0) + 0 %}
 							{% set net = gross - discount %}
-							{% set rate = (line.taxRate ? line.taxRate.percent : '0') %}
+							{# Taux (0.2 = 20%), si absent => 0 #}
+							{% set rate = line.taxRate ? line.taxRate.percent : 0 %}
+
 							<tr>
 								<td>{{ line.designation }}</td>
 								<td class="text-right">{{ qty|number_format(3, ',', ' ') }}</td>
@@ -253,6 +257,7 @@
 							</tr>
 						{% endfor %}
 					</tbody>
+
 				</table>
 			</div>
 
@@ -309,7 +314,7 @@
 		</div>
 
 		<div class="footer text-center">
-			{{ company.legalName ?? company.name }}
+			{{ company.legalName ?? company.title }}
 			—
 			{{ company.website ?? '' }}
 		</div>
