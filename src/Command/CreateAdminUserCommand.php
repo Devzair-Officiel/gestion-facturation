@@ -116,7 +116,7 @@ class CreateAdminUserCommand extends Command
 
         // 4) Création et persistance du User
         // Si ton entité User a un constructeur User(Company $company)
-        $user = new User($company);
+        $user = new User();
         // Adapte ces setters selon ton entité User
         $user->setEmail($email);
         if (method_exists($user, 'setLastName')) {

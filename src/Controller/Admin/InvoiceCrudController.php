@@ -27,6 +27,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
 use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
 use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use App\Controller\Admin\InvoiceLineCrudController;
 
 final class InvoiceCrudController extends AbstractCrudController
 {
@@ -93,23 +94,29 @@ final class InvoiceCrudController extends AbstractCrudController
             DateField::new('issueDate', 'Émission'),
             DateField::new('dueDate', 'Échéance'),
 
-            MoneyField::new('totalNet', 'Total HT')
-                ->setCurrency('EUR')
-                ->setStoredAsCents(true),
-
-            MoneyField::new('totalVat', 'TVA')
-                ->setCurrency('EUR')
-                ->setStoredAsCents(true),
-
-            MoneyField::new('totalGross', 'Total TTC')
-                ->setCurrency('EUR')
-                ->setStoredAsCents(true),
-
+            
             ArrayField::new('legalMentions', 'Mentions légales')
                 ->onlyOnDetail(),
 
-            CollectionField::new('lines', 'Lignes')
-                ->onlyOnDetail(),
+
+            CollectionField::new('lines', 'Préstation')
+                ->onlyOnForms()
+                ->setFormTypeOption('by_reference', false) // indispensable pour appeler add/remove
+                ->allowAdd()
+                ->allowDelete()
+                ->useEntryCrudForm(InvoiceLineCrudController::class),
+
+            MoneyField::new('totalNet', 'Total HT')
+                ->setCurrency('EUR')
+                ->setStoredAsCents(true)
+                ->setFormTypeOption('attr', ['readonly' => 'readonly']),
+
+
+            MoneyField::new('totalGross', 'Total TTC')
+                ->setCurrency('EUR')
+                ->setStoredAsCents(true)
+                ->setFormTypeOption('attr', ['readonly' => 'readonly']),
+
         ];
     }
 
@@ -131,7 +138,7 @@ final class InvoiceCrudController extends AbstractCrudController
             });
 
         return $actions
-            ->add(Crud::PAGE_INDEX, Action::DETAIL) 
+            ->add(Crud::PAGE_INDEX, Action::DETAIL)
             ->add(Crud::PAGE_INDEX, $issue)
             ->add(Crud::PAGE_DETAIL, $issue);
     }
@@ -205,7 +212,7 @@ final class InvoiceCrudController extends AbstractCrudController
                     $destUrl
                 )
             );
-            
+
 
             $this->addFlash('success', sprintf('Facture %s émise avec succès.', $invoice->getNumber()));
         } catch (\Throwable $e) {
@@ -222,21 +229,17 @@ final class InvoiceCrudController extends AbstractCrudController
         );
     }
 
-    private function redirectBack(AdminContext $context, ?Invoice $invoice = null)
-    {
-        $url = $this->urlGen
-            ->setController(self::class)
-            ->setAction(Crud::PAGE_DETAIL)
-            ->setEntityId($invoice?->getId())
-            ->generateUrl();
 
-        return $this->redirect($url);
-    }
 
     public function persistEntity(EntityManagerInterface $em, $entityInstance): void
     {
         if ($entityInstance instanceof Invoice) {
-            $this->handleCustomerCreation($em, $entityInstance);
+            foreach ($entityInstance->getLines() as $line) {
+                if ($line->getInvoice() !== $entityInstance) {
+                    $line->setInvoice($entityInstance); // 🔗
+                }
+            }
+            $this->calculator->compute($entityInstance); // (voir §2)
         }
         parent::persistEntity($em, $entityInstance);
     }
@@ -244,30 +247,16 @@ final class InvoiceCrudController extends AbstractCrudController
     public function updateEntity(EntityManagerInterface $em, $entityInstance): void
     {
         if ($entityInstance instanceof Invoice) {
-            $this->handleCustomerCreation($em, $entityInstance);
+            foreach ($entityInstance->getLines() as $line) {
+                if ($line->getInvoice() !== $entityInstance) {
+                    $line->setInvoice($entityInstance);
+                }
+            }
+            $this->calculator->compute($entityInstance);
         }
         parent::updateEntity($em, $entityInstance);
     }
 
-    private function handleCustomerCreation(EntityManagerInterface $em, Invoice $invoice): void
-    {
-        $request = $this->requestStack->getCurrentRequest();
-        $formData = $request->request->all()['Invoice'] ?? [];
 
-        $newName = $formData['customerName'] ?? null;
 
-        if ($newName && trim($newName) !== '') {
-            $existing = $em->getRepository(Customer::class)
-                ->findOneBy(['title' => trim($newName)]);
-
-            if ($existing) {
-                $invoice->setCustomer($existing);
-            } else {
-                $new = new Customer();
-                $new->setTitle(trim($newName));
-                $em->persist($new);
-                $invoice->setCustomer($new);
-            }
-        }
-    }
 }

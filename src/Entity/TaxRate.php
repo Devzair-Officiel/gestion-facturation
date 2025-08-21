@@ -10,8 +10,6 @@ use App\Repository\TaxRateRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TaxRateRepository::class)]
-#[ORM\UniqueConstraint(name: 'uniq_tax_company_title', columns: ['company_id', 'title'])]
-
 class TaxRate
 {
     #[ORM\Id]
@@ -23,7 +21,7 @@ class TaxRate
     #[ORM\Column(length: 40)]
     private string $title; // ex: "TVA 20%"
 
-    #[ORM\Column(type: 'decimal', precision: 7, scale: 4)]
+    #[ORM\Column(type: 'decimal', precision: 5, scale: 4, nullable: true)]
     private string $percent; // "0.2000" = 20%
 
     #[ORM\Column(length: 2, options: ['default' => 'FR'])]
@@ -32,16 +30,6 @@ class TaxRate
     #[ORM\Column]
     private bool $active = true;
 
-    #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: false)]
-    private Company $company;
-
-    public function __construct(Company $company, string $title, string $percent)
-    {
-        $this->company = $company;
-        $this->title = $title;
-        $this->percent = $percent;
-    }
 
     public function getId(): ?int
     {
@@ -94,5 +82,10 @@ class TaxRate
         $this->active = $active;
 
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        return $this->title ?? 'taxe';
     }
 }

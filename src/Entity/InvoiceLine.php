@@ -9,9 +9,9 @@ namespace App\Entity;
 use App\Repository\InvoiceLineRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: InvoiceLineRepository::class)]
-#[ORM\Index(name: 'idx_invoiceline_invoice', columns: ['invoice_id'])]
 class InvoiceLine
 {
     #[ORM\Id]
@@ -22,29 +22,35 @@ class InvoiceLine
     #[ORM\Column(length: 255)]
     private string $designation;
 
-    #[ORM\Column(type: 'decimal', precision: 18, scale: 6)]
+    #[ORM\Column(type: 'decimal')]
+    #[Assert\Positive]
     private string $quantity = '1'; // string decimal pour éviter les erreurs binaires
 
     #[ORM\Column(type: 'integer')]
+    #[Assert\GreaterThanOrEqual(0)]
     private int $unitPriceCents; // HT en centimes
 
     #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $discountCents = 0; // remise montant en centimes (option : gérer une remise % ailleurs)
 
     #[ORM\ManyToOne(inversedBy: 'lines')]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private Invoice $invoice;
 
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: true)]
     private ?TaxRate $taxRate = null;
 
-    public function __construct(Invoice $invoice, string $designation, int $unitPriceCents)
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?CatalogItem $item = null;
+
+    public function __construct()
     {
-        $this->invoice = $invoice;
-        $this->designation = $designation;
-        $this->unitPriceCents = $unitPriceCents;
+        $this->quantity = '1.000';
+        $this->discountCents = 0;
     }
+
 
     public function getId(): ?int
     {
@@ -122,4 +128,15 @@ class InvoiceLine
 
         return $this;
     }
+
+    public function getItem(): ?CatalogItem
+    {
+        return $this->item;
+    }
+    public function setItem(?CatalogItem $i): self
+    {
+        $this->item = $i;
+        return $this;
+    }
+    
 }

@@ -23,10 +23,9 @@ use Doctrine\Common\Collections\ArrayCollection;
 class Invoice
 {
     #[ORM\Id]
-    #[ORM\Column(type: 'uuid', unique: true)]
-    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
-    #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    private ?Uuid $id = null;
+    #[ORM\GeneratedValue] 
+    #[ORM\Column(type: 'integer')]
+    private ?int $id = null;
 
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: true)]
@@ -83,7 +82,7 @@ class Invoice
         $this->number = 'DRAFT-' . Uuid::v4()->toRfc4122();
     }
 
-    public function getId(): ?Uuid
+    public function getId(): ?int
     {
         return $this->id;
     }
@@ -248,14 +247,21 @@ class Invoice
     {
         if (!$this->lines->contains($line)) {
             $this->lines->add($line);
+            $line->setInvoice($this);
         }
         return $this;
     }
+
     public function removeLine(InvoiceLine $line): self
     {
-        $this->lines->removeElement($line);
+        if ($this->lines->removeElement($line)) {
+            if ($line->getInvoice() === $this) {
+                $line->setInvoice(null);
+            }
+        }
         return $this;
     }
+
     public function getLines(): Collection
     {
         return $this->lines;

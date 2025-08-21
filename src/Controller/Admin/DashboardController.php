@@ -9,14 +9,16 @@ use App\Entity\Payment;
 use App\Entity\Product;
 use App\Entity\TaxRate;
 use App\Entity\User;
-
-use App\Controller\Admin\InvoiceCrudController; // ⚠️ assure-toi d'avoir ce contrôleur
+use App\Controller\Admin\InvoiceCrudController;
+use App\Entity\CatalogItem;
+use App\Entity\InvoiceLine;
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminDashboard;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Dashboard;
 use EasyCorp\Bundle\EasyAdminBundle\Config\MenuItem;
 use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractDashboardController;
 use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
 use Symfony\Component\HttpFoundation\Response;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Assets;
 
 #[AdminDashboard(routePath: '/admin', routeName: 'admin')]
 final class DashboardController extends AbstractDashboardController
@@ -31,11 +33,13 @@ final class DashboardController extends AbstractDashboardController
 
         return $this->redirect($url);
 
-        // (Option) Pour afficher une page custom :
-        // return $this->render('@EasyAdmin/page/content.html.twig', [
-        //     'page_title' => 'Bienvenue',
-        //     'content' => '<p>Statistiques, widgets, etc.</p>',
-        // ]);
+    }
+
+    public function configureAssets(): Assets
+    {
+        return Assets::new()
+            ->addJsFile('js/ea-prefill.js')
+            ->addJsFile('js/ea-invoice-calc.js');
     }
 
     public function configureDashboard(): Dashboard
@@ -51,11 +55,11 @@ final class DashboardController extends AbstractDashboardController
 
         yield MenuItem::section('Référentiel');
         yield MenuItem::linkToCrud('Clients',  'fa fa-users', Customer::class);
-        yield MenuItem::linkToCrud('Produits', 'fa fa-box',   Product::class);
         yield MenuItem::linkToCrud('Taxes',    'fa fa-percent', TaxRate::class);
 
         yield MenuItem::section('Facturation');
         yield MenuItem::linkToCrud('Factures',  'fa fa-file-invoice', Invoice::class);
+        yield MenuItem::linkToCrud('Préstations',  'fa fa-file-invoice', CatalogItem::class);
         yield MenuItem::linkToCrud('Paiements', 'fa fa-money-check-alt', Payment::class);
 
         yield MenuItem::section('Administration');
@@ -65,4 +69,5 @@ final class DashboardController extends AbstractDashboardController
         yield MenuItem::section();
         yield MenuItem::linkToLogout('Déconnexion', 'fa fa-sign-out-alt');
     }
+
 }

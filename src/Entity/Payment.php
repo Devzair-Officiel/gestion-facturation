@@ -41,16 +41,6 @@ class Payment
     #[ORM\JoinColumn(nullable: false)]
     private Invoice $invoice;
 
-
-    public function __construct(Company $company, Invoice $invoice, int $amountCents, \DateTimeImmutable $paidAt, string $method = 'transfer')
-    {
-        $this->company = $company;
-        $this->invoice = $invoice;
-        $this->amountCents = $amountCents;
-        $this->paidAt = $paidAt;
-        $this->method = $method;
-    }
-
     public function getId(): ?int
     {
         return $this->id;
