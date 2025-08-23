@@ -1,0 +1,21 @@
+<IfModule mod_negotiation.c>
+    Options -MultiViews
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # forward Authorization header to PHP
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%1]
+
+    # If the requested file/dir doesn’t exist, route to index.php
+    RewriteCond %{REQUEST_URI} !^/index\.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# Fallback when mod_rewrite is not available
+<IfModule !mod_rewrite.c>
+    FallbackResource /index.php
+</IfModule>
