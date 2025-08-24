@@ -40,10 +40,10 @@ final class InvoiceLineCrudController extends AbstractCrudController
         $qty = NumberField::new('quantity', 'Qté')
             ->setNumDecimals(3)
             ->setFormTypeOption('input', 'string') // DECIMAL stocké en string
-            ->setFormTypeOption('scale', 3)
+            ->setFormTypeOption('scale', 2)
             ->setFormTypeOption('attr', [
-                'step' => '0.001',
-                'min'  => '0.001',
+                'step' => '0.01',
+                'min'  => '0.01',
                 'data-prefill-target' => 'quantity',
             ])
             ->setColumns(3);
@@ -65,14 +65,14 @@ final class InvoiceLineCrudController extends AbstractCrudController
         $tax = AssociationField::new('taxRate', 'TVA')
             ->setRequired(false)
             ->setFormTypeOption('placeholder', 'Aucun(e)')
+            // label lisible: "19,60 %"
             ->setFormTypeOption('choice_label', function (?TaxRate $t) {
-                if (!$t) return '';
-                return number_format(((float)$t->getPercent()) * 100, 2, ',', ' ') . ' %';
+                return $t ? number_format($t->getPercent(), 2, ',', ' ') . ' %' : '';
             })
-            // 👇 expose le taux dans data-percent (ex: 0.2)
-            ->setFormTypeOption('choice_attr', function ($choice, $key, $value) {
+            // ⚠️ le JS attend un ratio (0.196)
+            ->setFormTypeOption('choice_attr', function ($choice) {
                 if (!$choice instanceof TaxRate) return [];
-                return ['data-percent' => (string)$choice->getPercent()];
+                return ['data-percent' => (string)$choice->getRatio()];
             })
             ->setColumns(3);
 

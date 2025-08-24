@@ -66,7 +66,6 @@ final class UserCrudController extends AbstractCrudController
 
         // Company (requis). Ici on affiche toujours le champ, mais on le rend modifiable
         // uniquement pour les super-admins.
-        // NOTE : si ta Company a "name" et pas "title", remplace 'title' par 'name'.
         $company = AssociationField::new('company', 'Société')
             ->onlyOnForms()
             ->setFormTypeOption('choice_label', 'title');

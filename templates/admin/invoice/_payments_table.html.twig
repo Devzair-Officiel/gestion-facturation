@@ -1,0 +1,50 @@
+{# entity = EntityDto ; on récupère l'entité métier #}
+{% set inv = entity.instance %}
+
+{% set payments = inv.payments %}
+{% set currency = inv.currency ?? 'EUR' %}
+
+{% if payments|length == 0 %}
+	<div class="text-muted">Aucun paiement enregistré.</div>
+{% else %}
+	<table class="table table-sm">
+		<thead>
+			<tr>
+				<th>Date</th>
+				<th>Méthode</th>
+				<th>Référence</th>
+				<th class="text-end">Montant</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for p in payments %}
+				{% set amount = (p.amountCents / 100) | number_format(2, ',', ' ') %}
+				<tr>
+					<td>{{ p.paidAt ? p.paidAt|date('d/m/Y') : '—' }}</td>
+					<td>{{ p.method ?? '—' }}</td>
+					<td>{{ p.reference ?? '—' }}</td>
+					<td class="text-end">
+						<strong>{{ amount }}
+							{{ currency }}</strong>
+					</td>
+				</tr>
+			{% endfor %}
+		</tbody>
+		<tfoot>
+			{% set paidCents  = inv.getPaidTotalCents() ?? 0 %}
+			{% set totalCents = inv.totalGross ?? 0 %}
+			{% set dueCents   = max(totalCents - paidCents, 0) %}
+			<tr>
+				<th colspan="3" class="text-end">Total payé</th>
+				<th class="text-end">{{ (paidCents/100)|number_format(2, ',', ' ') }}
+					{{ currency }}</th>
+			</tr>
+			<tr>
+				<th colspan="3" class="text-end">Reste à payer</th>
+				<th class="text-end">{{ (dueCents/100)|number_format(2, ',', ' ') }}
+					{{ currency }}</th>
+			</tr>
+		</tfoot>
+	</table>
+{% endif %}
+

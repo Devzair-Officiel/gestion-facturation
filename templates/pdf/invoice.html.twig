@@ -13,7 +13,6 @@
 		{{ amount|number_format(2, ',', ' ') ~ ' ' ~ currency }}
 	{% endif %}
 {% endmacro %}
-
 {% import _self as ui %}
 
 <!DOCTYPE html>
@@ -101,21 +100,46 @@
 			.small {
 				font-size: 10px;
 			}
-			.totals td {
-				padding: 6px 8px;
+
+			/* --- Summary card (totals block) --- */
+			.summary-card {
+				width: 360px;
+				margin-left: auto;
+				border-top: 1px solid #ddd;
+				padding-top: 12px;
 			}
-			.totals .label {
-				text-align: right;
+			.summary-row {
+				display: flex;
+				justify-content: space-between;
+				align-items: baseline;
+				padding: 6px 0;
 			}
-			.totals .value {
+			.summary-row.total {
+				border-top: 1px solid #ddd;
+				margin-top: 6px;
+				padding-top: 8px;
+				font-weight: 700;
+			}
+			.summary-row.due {
+				border-top: 1px solid #111;
+				margin-top: 6px;
+				padding-top: 10px;
+				font-size: 14px;
+				font-weight: 700;
+			}
+			.summary-label {
+				color: #444;
+			}
+			.summary-value {
 				text-align: right;
-				width: 140px;
+				min-width: 140px;
 			}
 
-			/* Pour wkhtmltopdf : éviter les sauts disgracieux */
+			/* Wkhtmltopdf : éviter les sauts disgracieux */
 			.avoid-break {
 				page-break-inside: avoid;
 			}
+
 			.footer {
 				position: fixed;
 				bottom: 0;
@@ -129,7 +153,6 @@
 		</style>
 	</head>
 	<body>
-
 		<div class="container">
 			<div class="space-between">
 				<div>
@@ -137,8 +160,8 @@
 					<div class="muted">N°
 						{{ invoice.number }}</div>
 				</div>
-				<div class="text-right">{# Place ton logo si besoin #}
-					{# <img src="{{ asset('build/logo.png') }}" alt="Logo" height="48"> #}
+				<div
+					class="text-right">{# <img src="{{ asset('build/logo.png') }}" alt="Logo" height="48"> #}
 				</div>
 			</div>
 
@@ -159,7 +182,8 @@
 						{% if company.phone %}Tél:
 							{{ company.phone }}<br>
 						{% endif %}
-						{% if company.siren %}SIREN:
+						{% if company.siren %}
+							SIREN:
 							{{ company.siren }}
 							{% if company.rcsNumber %}
 								— RCS:
@@ -204,7 +228,6 @@
 						{{ invoice.dueDate|date('d/m/Y') }}<br>
 						Statut :
 						{{ invoice.status.value|capitalize }}
-
 					</div>
 				</div>
 			</div>
@@ -213,7 +236,7 @@
 				<table>
 					<thead>
 						<tr>
-							<th style="width:40%">Désignation</th>
+							<th style="width:40%">Description</th>
 							<th class="text-right" style="width:10%">Qté</th>
 							<th class="text-right" style="width:15%">PU HT</th>
 							<th class="text-right" style="width:10%">Remise</th>
@@ -223,32 +246,28 @@
 					</thead>
 					<tbody>
 						{% for line in invoice.lines %}
-							{# Quantité en nombre (forcer numérique avec * 1) #}
-							{% set qty = (line.quantity ?? 1) * 1 %}
-							{# Prix unitaire en centimes, forcer numérique avec + 0 #}
-							{% set unit = (line.unitPriceCents ?? 0) + 0 %}
-							{% set gross = (qty * unit)|round(0, 'common') %}
+							{# Quantité et montants en centimes #}
+							{% set qty      = (line.quantity ?? 1) * 1 %}
+							{% set unit     = (line.unitPriceCents ?? 0) + 0 %}
+							{% set gross    = (qty * unit)|round(0, 'common') %}
 							{% set discount = (line.discountCents ?? 0) + 0 %}
-							{% set net = gross - discount %}
-							{# Taux (0.2 = 20%), si absent => 0 #}
-							{% set rate = line.taxRate ? line.taxRate.percent : 0 %}
+							{% set net      = gross - discount %}
+
+							{# Taux TVA: accepte 19.6 (déjà %) ou 0.196 (ratio) #}
+							{% set rawRate     = line.taxRate ? line.taxRate.percent : 0 %}
+							{% set rateNum     = (rawRate + 0) %}
+							{% set ratePercent = rateNum > 1 ? rateNum : (rateNum * 100) %}
 
 							<tr>
 								<td>{{ line.designation }}</td>
-								<td class="text-right">{{ qty|number_format(3, ',', ' ') }}</td>
+								<td class="text-right">{{ qty|number_format(0, ',', ' ') }}</td>
 								<td class="text-right">{{ ui.money(unit, invoice.currency) }}</td>
 								<td class="text-right">
-									{% if discount > 0 %}
-										-{{ ui.money(discount, invoice.currency) }}
-									{% else %}
-										—
+									{% if discount > 0 %}-{{ ui.money(discount, invoice.currency) }}{% else %}—
 									{% endif %}
 								</td>
-								<td class="text-right">
-									{% set percent = (rate * 100)|number_format(2, ',', ' ') %}
-									{{ percent }}
-									%
-								</td>
+								<td class="text-right">{{ ratePercent|number_format(2, ',', ' ') }}
+									%</td>
 								<td class="text-right">{{ ui.money(net, invoice.currency) }}</td>
 							</tr>
 						{% else %}
@@ -257,55 +276,83 @@
 							</tr>
 						{% endfor %}
 					</tbody>
-
 				</table>
 			</div>
 
-			<div class="mt-16 flex avoid-break">
-				<div style="flex:1">
-					<div class="box small">
-						<strong>Conditions de paiement</strong><br>
-						Virement bancaire à réception de facture.<br>
-						{% if company.iban %}IBAN :
-							{{ company.iban }}<br>
-						{% endif %}
-						{% if company.bic %}BIC :
-							{{ company.bic }}<br>
-						{% endif %}
-						Pénalités de retard : taux légal + indemnité forfaitaire 40 € (art. L441-10 C. com.).<br>
-						{% if invoice.legalMentions %}
-							<br><strong>Mentions :</strong><br>
-							{% for k, v in invoice.legalMentions %}
-								-
-								{{ k }}
-								:
-								{{ v }}<br>
-							{% endfor %}
-						{% endif %}
+			{# === Préparation des totaux & ventilation TVA === #}
+			{% set totalNet   = invoice.totalNet ?? 0 %}
+			{% set totalVat   = invoice.totalVat ?? 0 %}
+			{% set totalGross = invoice.totalGross ?? (totalNet + totalVat) %}
+
+			{# Ventilation de la TVA par taux (clé: "19.60", "5.50", etc.) #}
+			{% set taxBreakdown = {} %}
+			{% for line in invoice.lines %}
+				{% set qty      = (line.quantity ?? 1) * 1 %}
+				{% set unit     = (line.unitPriceCents ?? 0) + 0 %}
+				{% set gross    = (qty * unit)|round(0, 'common') %}
+				{% set discount = (line.discountCents ?? 0) + 0 %}
+				{% set base     = gross - discount %}
+
+				{% set rawRate     = line.taxRate ? line.taxRate.percent : 0 %}
+				{% set rateNum     = (rawRate + 0) %}
+				{# nombre Twig #}
+				{% set ratePercent = rateNum > 1 ? rateNum : (rateNum * 100) %}
+				{% set rateKey     = ratePercent|number_format(2, '.', '') %}
+
+				{% set rateDecimal = rateNum > 1 ? (rateNum / 100) : rateNum %}
+				{% set vat         = (base * rateDecimal)|round(0, 'common') %}
+
+				{% set current = taxBreakdown[rateKey]|default({'base':0,'vat':0}) %}
+				{% set current = {'base': current.base + base, 'vat': current.vat + vat} %}
+				{% set taxBreakdown = taxBreakdown|merge({ (rateKey): current }) %}
+			{% endfor %}
+
+			{# Montant payé & dû (si tu ne gères pas encore les paiements, laisse paid=0) #}
+			{% set paid = invoice.amountPaid ?? 0 %}
+			{% set due  = totalGross - paid %}
+
+			{# --- Résumé des totaux (à droite), avec ventilation TVA par taux --- #}
+			<div class="mt-16 avoid-break">
+				<div class="summary-card">
+					<div class="summary-row">
+						<div class="summary-label">Sous-total HT</div>
+						<div class="summary-value">{{ ui.money(totalNet, invoice.currency) }}</div>
+					</div>
+
+					{% set sortedRates = taxBreakdown|keys|sort %}
+					{% for rate in sortedRates %}
+						{% set sums = taxBreakdown[rate] %}
+						<div class="summary-row">
+							<div class="summary-label">
+								TVA
+								{{ rate|number_format(2, ',', ' ') }}
+								% de
+								{{ ui.money(sums.base, invoice.currency) }}
+							</div>
+							<div class="summary-value">{{ ui.money(sums.vat, invoice.currency) }}</div>
+						</div>
+					{% endfor %}
+
+					<div class="summary-row total">
+						<div class="summary-label">Montant Total
+							{{ invoice.currency }}</div>
+						<div class="summary-value">
+							<strong>{{ ui.money(totalGross, invoice.currency) }}</strong>
+						</div>
+					</div>
+
+					<div class="summary-row">
+						<div class="summary-label">Montant payé</div>
+						<div class="summary-value">{{ ui.money(paid, invoice.currency) }}</div>
+					</div>
+
+					<div class="summary-row due">
+						<div class="summary-label">Montant à payer ({{ invoice.currency }})</div>
+						<div class="summary-value">{{ ui.money(due, invoice.currency) }}</div>
 					</div>
 				</div>
-
-				<div style="flex:1">
-					<table class="totals" style="width:100%">
-						<tr>
-							<td class="label">Total HT</td>
-							<td class="value">{{ ui.money(invoice.totalNet, invoice.currency) }}</td>
-						</tr>
-						<tr>
-							<td class="label">TVA</td>
-							<td class="value">{{ ui.money(invoice.totalVat, invoice.currency) }}</td>
-						</tr>
-						<tr>
-							<td class="label">
-								<strong>Total TTC</strong>
-							</td>
-							<td class="value">
-								<strong>{{ ui.money(invoice.totalGross, invoice.currency) }}</strong>
-							</td>
-						</tr>
-					</table>
-				</div>
 			</div>
+
 
 			<div class="mt-24 small muted">
 				Document généré le
@@ -318,6 +365,5 @@
 			—
 			{{ company.website ?? '' }}
 		</div>
-
 	</body>
 </html>

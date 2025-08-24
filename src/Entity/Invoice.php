@@ -72,6 +72,9 @@ class Invoice
     #[ORM\OneToMany(mappedBy: 'invoice', targetEntity: InvoiceLine::class, cascade: ['persist'], orphanRemoval: true)]
     private Collection $lines;
 
+    #[ORM\OneToMany(mappedBy: 'invoice', targetEntity: Payment::class, cascade: ['persist'], orphanRemoval: true)]
+    private Collection $payments;
+
     public function __construct(?Company $company = null, ?Customer $customer = null)
     {
         $this->company = $company;
@@ -79,7 +82,8 @@ class Invoice
         $this->issueDate = new \DateTimeImmutable();
         $this->dueDate = $this->issueDate->modify('+30 days');
         $this->lines = new ArrayCollection();
-        $this->number = 'DRAFT-' . Uuid::v4()->toRfc4122();
+        $this->payments = new ArrayCollection();
+        $this->number = 'Brouillon-' . Uuid::v4()->toRfc4122();
     }
 
     public function getId(): ?int
@@ -265,5 +269,54 @@ class Invoice
     public function getLines(): Collection
     {
         return $this->lines;
+    }
+
+
+    public function addPayment(Payment $payment): self
+    {
+        if (!$this->payments->contains($payment)) {
+            $this->payments->add($payment);
+            $payment->setInvoice($this);
+        }
+        return $this;
+    }
+
+    public function removePayment(Payment $payment): self
+    {
+        if ($this->payments->removeElement($payment)) {
+            if ($payment->getInvoice() === $this) {
+                $payment->setInvoice(null);
+            }
+        }
+        return $this;
+    }
+
+    public function getPayments(): Collection
+    {
+        return $this->payments;
+    }
+
+    public function getPaidTotalCents(): int
+    {
+        $sum = 0;
+        foreach ($this->getPayments() as $p) {
+            $sum += $p->getAmountCents();
+        }
+        return $sum;
+    }
+
+    public function getBalanceDueCents(): int
+    {
+        return max(0, $this->getTotalGross() - $this->getPaidTotalCents());
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->getPaidTotalCents() >= $this->getTotalGross();
+    }
+
+    public function __toString(): string
+    {
+        return $this->getNumber() ?? '—';
     }
 }

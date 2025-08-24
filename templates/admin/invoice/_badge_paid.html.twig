@@ -1,0 +1,10 @@
+{# entity = EntityDto ; on récupère l'entité métier #}
+{% set inv = entity.instance %}
+
+{% set currency  = inv.currency ?? 'EUR' %}
+{% set paidCents = inv.getPaidTotalCents() ?? 0 %}
+{% set paid      = (paidCents / 100) | number_format(2, ',', ' ') %}
+
+<span class="badge badge-success">{{ paid }}
+	{{ currency }}</span>
+

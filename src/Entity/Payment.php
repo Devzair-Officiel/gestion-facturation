@@ -7,17 +7,16 @@
 namespace App\Entity;
 
 use App\Repository\PaymentRepository;
-use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: PaymentRepository::class)]
 #[ORM\Index(name: 'idx_payment_invoice', columns: ['invoice_id'])]
+#[ORM\Index(name: 'idx_payment_reference', columns: ['reference'])]
 class Payment
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column(type: 'uuid', unique: true)]
+    #[ORM\Column(type: 'integer', unique: true)]
     private ?int $id = null;
 
     
@@ -37,7 +36,7 @@ class Payment
     #[ORM\JoinColumn(nullable: false)]
     private Company $company;
 
-    #[ORM\ManyToOne]
+    #[ORM\ManyToOne(inversedBy: 'payments')]
     #[ORM\JoinColumn(nullable: false)]
     private Invoice $invoice;
 
@@ -116,5 +115,26 @@ class Payment
         $this->invoice = $invoice;
 
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        // Facture, numéro, client
+        $invoice = $this->getInvoice();
+        $number  = $invoice?->getNumber() ?: '—';
+        $client  = $invoice?->getCustomerName() ?: 'Client';
+
+        // Société émettrice (encaisseur)
+        $companyName = $this->getCompany()?->getLegalName() ?: 'Société';
+
+        // Montant + devise
+        $amount   = $this->getAmountCents() !== null ? number_format($this->getAmountCents() / 100, 2, ',', ' ') : '0,00';
+        $currency = $invoice?->getCurrency() ?: 'EUR';
+
+        // Date d’encaissement
+        $date = $this->getPaidAt()?->format('d/m/Y') ?: '—';
+
+        // Ex: "Facture 2025-000123 — ACME Corp — 1 234,56 EUR (DevZair SARL) [24/08/2025]"
+        return sprintf('Facture %s — %s — %s %s (%s) [%s]', $number, $client, $amount, $currency, $companyName, $date);
     }
 }

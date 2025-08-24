@@ -1,0 +1,19 @@
+{# entity = EntityDto ; on récupère l'entité métier #}
+{% set inv = entity.instance %}
+
+{% set currency   = inv.currency ?? 'EUR' %}
+{% set totalCents = inv.totalGross ?? 0 %}
+{% set paidCents  = inv.getPaidTotalCents() ?? 0 %}
+{% set dueCents   = max(totalCents - paidCents, 0) %}
+{% set due        = (dueCents / 100) | number_format(2, ',', ' ') %}
+
+{% set isOverdue = (inv.dueDate is not null) and (dueCents > 0) and (inv.dueDate < date()) %}
+{% set class = isOverdue ? 'badge badge-danger' : (dueCents > 0 ? 'badge badge-warning' : 'badge badge-success') %}
+
+<span class="{{ class }}">
+	{{ due }}
+	{{ currency }}
+	{% if isOverdue %}&nbsp;<i class="fa fa-exclamation-triangle" title="En retard"></i>
+	{% endif %}
+</span>
+

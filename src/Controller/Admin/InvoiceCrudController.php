@@ -11,10 +11,12 @@ use App\Service\InvoiceCalculator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Response;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
+use EasyCorp\Bundle\EasyAdminBundle\Field\Field;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
 use EasyCorp\Bundle\EasyAdminBundle\Field\IdField;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\String\Slugger\AsciiSlugger;
+use App\Controller\Admin\InvoiceLineCrudController;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
 use EasyCorp\Bundle\EasyAdminBundle\Field\DateField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
@@ -27,7 +29,9 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
 use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
 use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
-use App\Controller\Admin\InvoiceLineCrudController;
+use EasyCorp\Bundle\EasyAdminBundle\Field\FormField;
+
+
 
 final class InvoiceCrudController extends AbstractCrudController
 {
@@ -58,23 +62,46 @@ final class InvoiceCrudController extends AbstractCrudController
 
     public function configureFields(string $pageName): iterable
     {
-        return [
-            IdField::new('id')
-                ->onlyOnDetail(),
+        // Badges sur INDEX
+        $paidBadgeIndex = TextField::new('paidBadge', 'Payé')
+            ->onlyOnIndex()
+            ->setTemplatePath('admin/invoice/_badge_paid.html.twig')
+            ->setSortable(false);
 
-            TextField::new('number', 'Numéro')
-                ->setDisabled(true),
+        $dueBadgeIndex = TextField::new('dueBadge', 'Reste à payer')
+            ->onlyOnIndex()
+            ->setTemplatePath('admin/invoice/_badge_due.html.twig')
+            ->setSortable(false);
 
-            AssociationField::new('company', 'Société')
-                ->setRequired(true),
+        // Badges sur DETAIL
+        $paidBadgeDetail = TextField::new('paidBadge', 'Payé')
+            ->onlyOnDetail()
+            ->setTemplatePath('admin/invoice/_badge_paid.html.twig');
+
+        $dueBadgeDetail = TextField::new('dueBadge', 'Reste à payer')
+            ->onlyOnDetail()
+            ->setTemplatePath('admin/invoice/_badge_due.html.twig');
+
+        // Section "Paiements" sur DETAIL
+        $paymentsPanel = FormField::addPanel('Paiements')->onlyOnDetail();
+
+
+        $paymentsTable = TextField::new('paymentsTable')
+            ->onlyOnDetail()
+            ->setLabel(false)
+            ->setTemplatePath('admin/invoice/_payments_table.html.twig');
+
+        // --- Tes champs existants (adaptés) ---
+        $fields = [
+            IdField::new('id')->onlyOnDetail(),
+
+            TextField::new('number', 'Numéro')->setDisabled(true),
+
+            AssociationField::new('company', 'Société')->setRequired(true),
 
             AssociationField::new('customer', 'Client existant')
                 ->setFormTypeOption('choice_label', 'title')
                 ->setRequired(false),
-
-            TextField::new('customerName', 'Nouveau client')
-                ->onlyOnForms()
-                ->setHelp('Laissez vide si vous choisissez un client existant'),
 
             ChoiceField::new('status', 'Statut')
                 ->setChoices(array_combine(
@@ -94,34 +121,54 @@ final class InvoiceCrudController extends AbstractCrudController
             DateField::new('issueDate', 'Émission'),
             DateField::new('dueDate', 'Échéance'),
 
-            
-            ArrayField::new('legalMentions', 'Mentions légales')
-                ->onlyOnDetail(),
 
+            ArrayField::new('legalMentions', 'Mentions légales')->onlyOnDetail(),
 
             CollectionField::new('lines', 'Préstation')
                 ->onlyOnForms()
-                ->setFormTypeOption('by_reference', false) // indispensable pour appeler add/remove
+                ->setFormTypeOption('by_reference', false)
                 ->allowAdd()
                 ->allowDelete()
+                ->setRequired(true)
                 ->useEntryCrudForm(InvoiceLineCrudController::class),
 
             MoneyField::new('totalNet', 'Total HT')
-                ->setCurrency('EUR')
                 ->setStoredAsCents(true)
+                ->setCurrency('EUR') // affichage, on remet la vraie devise en détail via template
                 ->setFormTypeOption('attr', ['readonly' => 'readonly']),
-
 
             MoneyField::new('totalGross', 'Total TTC')
-                ->setCurrency('EUR')
                 ->setStoredAsCents(true)
+                ->setCurrency('EUR')
                 ->setFormTypeOption('attr', ['readonly' => 'readonly']),
 
+            // Sur DETAIL on ré-affiche les badges + table Paiements
+            $paidBadgeIndex,
+            $dueBadgeIndex,
+            $paidBadgeDetail,
+            $dueBadgeDetail,
+            $paymentsPanel,
+            $paymentsTable,
         ];
+
+        return $fields;
     }
+
 
     public function configureActions(Actions $actions): Actions
     {
+        $addPayment = Action::new('addPayment', 'Ajouter un paiement')
+            ->setIcon('fa fa-plus')
+            ->setCssClass('btn btn-success')
+            ->displayIf(fn($e) => $e instanceof Invoice && $e->getStatus() !== InvoiceStatus::CANCELLED)
+            ->linkToUrl(function (Invoice $invoice) {
+                return $this->urlGen
+                    ->setController(PaymentCrudController::class)
+                    ->setAction(Crud::PAGE_NEW)
+                    ->set('invoiceId', (string) $invoice->getId())
+                    ->generateUrl();
+            });
+
         $issue = Action::new('issue', 'Émettre')
             ->setIcon('fa fa-check')
             ->setCssClass('btn btn-warning')
@@ -164,6 +211,11 @@ final class InvoiceCrudController extends AbstractCrudController
 
         if ($invoice->getStatus() !== InvoiceStatus::DRAFT) {
             $this->addFlash('warning', 'Seules les factures en brouillon peuvent être émises.');
+            return $this->redirectToIndex();
+        }
+
+        if (null === $invoice->getCustomer()) {
+            $this->addFlash('danger', 'Impossible d’émettre : aucun client n’est associé à cette facture.');
             return $this->redirectToIndex();
         }
 
@@ -256,7 +308,4 @@ final class InvoiceCrudController extends AbstractCrudController
         }
         parent::updateEntity($em, $entityInstance);
     }
-
-
-
 }

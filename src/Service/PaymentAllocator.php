@@ -2,35 +2,40 @@
 
 namespace App\Service;
 
-use App\Entity\Invoice;
+use App\Entity\Payment;
 use App\Enum\InvoiceStatus;
-use App\Repository\PaymentRepository;
+use Doctrine\ORM\EntityManagerInterface;
 
 final class PaymentAllocator
 {
-    public function __construct(private readonly PaymentRepository $payments) {}
+    public function __construct(private EntityManagerInterface $em) {}
 
-    /**
-     * Met à jour le statut de la facture selon le total payé.
-     * Retourne le montant total payé (centimes).
-     */
-    public function updateStatus(Invoice $invoice): int
+    public function allocate(Payment $payment): void
     {
-        $sum   = $this->payments->sumForInvoice($invoice);
-        $total = $invoice->getTotalGross();
+        $invoice = $payment->getInvoice();
 
-        if ($total > 0 && $sum >= $total) {
-            $invoice->setStatus(InvoiceStatus::PAID);
-        } elseif ($sum > 0 && $sum < $total) {
-            $invoice->setStatus(InvoiceStatus::PARTIALLY_PAID);
-        } else {
-            $today = new \DateTimeImmutable('today');
-            $isEmitted = \in_array($invoice->getStatus(), [InvoiceStatus::ISSUED, InvoiceStatus::SENT], true);
-            if ($isEmitted && $invoice->getDueDate() < $today) {
-                $invoice->setStatus(InvoiceStatus::OVERDUE);
-            }
+        // Sécurité : le Payment hérite toujours de la company de la facture
+        if ($invoice && $invoice->getCompany() !== null) {
+            $payment->setCompany($invoice->getCompany());
         }
 
-        return $sum;
+        // (Optionnel) si tu stockes la devise/amount d’origine, fais-le ici
+
+        // Recalcul du statut de la facture
+        $total = $invoice->getTotalGross();
+        $paid  = 0;
+        foreach ($invoice->getPayments() as $p) {
+            $paid += (int) $p->getAmountCents();
+        }
+
+        if ($paid <= 0) {
+            // Laisse ISSUED/SENT tel quel
+        } elseif ($paid < $total) {
+            $invoice->setStatus(InvoiceStatus::PARTIALLY_PAID);
+        } else { // >=
+            $invoice->setStatus(InvoiceStatus::PAID);
+        }
+
+        $this->em->flush(); // flush court, on ne modifie que Invoice & Payment
     }
 }

@@ -22,6 +22,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $email = null;
 
     #[ORM\Column(length: 100)]
+    #[Assert\NotBlank]
     private string $firstName;
 
     #[ORM\Column(length: 100)]
