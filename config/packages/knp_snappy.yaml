@@ -1,0 +1,12 @@
+knp_snappy:
+  pdf:
+    enabled: true
+    binary: '%env(resolve:WKHTMLTOPDF_BINARY)%'
+    options:
+      enable-local-file-access: true
+      allow: '%kernel.project_dir%/public'
+      encoding: 'utf-8'
+      page-size: A4
+      load-error-handling: ignore
+      javascript-delay: 800
+      no-stop-slow-scripts: true
