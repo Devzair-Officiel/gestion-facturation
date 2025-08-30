@@ -11,8 +11,8 @@ use Twig\Environment as TwigEnvironment;
 final class PdfRenderer
 {
     private string $projectDir;
-    private string $wkhtmltopdf;
     private string $publicPath;
+    private string $wkhtmltopdf;
 
     public function __construct(
         private readonly TwigEnvironment $twig,
@@ -20,7 +20,6 @@ final class PdfRenderer
     ) {
         $this->projectDir  = (string) $params->get('kernel.project_dir');
         $this->publicPath  = $this->projectDir . '/public';
-        // Lis l'un ou l'autre (selon ce que tu as mis dans .env)
         $this->wkhtmltopdf = $_ENV['WKHTMLTOPDF_BINARY']
             ?? $_ENV['WKHTMLTOPDF_PATH']
             ?? '/usr/bin/wkhtmltopdf';
@@ -28,7 +27,7 @@ final class PdfRenderer
 
     public function renderHtml(string $template, array $context = []): string
     {
-        // Injecte public_path pour permettre des liens file:// depuis Twig si besoin
+        // pour pouvoir référencer des assets locaux dans le template via file://
         $context['public_path'] = $this->publicPath;
         return $this->twig->render($template, $context);
     }
@@ -37,44 +36,38 @@ final class PdfRenderer
     {
         $fs  = new Filesystem();
         $out = $outputAbsolutePath ?? ($this->projectDir . '/public/invoices/' . uniqid('invoice_', true) . '.pdf');
+
         $dir = \dirname($out);
         if (!$fs->exists($dir)) {
             $fs->mkdir($dir, 0775);
         }
 
-        // Écrit le HTML dans public/invoices puis l’ouvre en file://
-        $tmpHtml = $this->projectDir . '/public/invoices/' . uniqid('invoice_', true) . '.html';
-        file_put_contents($tmpHtml, $html);
-        $input = 'file://' . $tmpHtml; // IMPORTANT : schéma file://
-
-        // Options clés : accès fichiers locaux + autorisation du dossier public
+        // Commande wkhtmltopdf : on lit le HTML sur STDIN ("-")
         $cmd = [
             $this->wkhtmltopdf,
-            '--enable-local-file-access',                  // wkhtmltopdf >= 0.12.6
+            '--enable-local-file-access',             // >= 0.12.6
             '--allow',
-            $this->publicPath,                 // utile toutes versions
+            $this->publicPath,            // autorise l’accès au /public
             '--encoding',
             'utf-8',
             '--page-size',
             'A4',
-            $input,
+            '-',                                      // <<< lire depuis stdin
             $out,
         ];
 
-        // Variables d’environnement pour éviter les warnings/runtime fontconfig
+        // Éviter les warnings/erreurs runtime Qt/fontconfig
         $env = [
             'XDG_RUNTIME_DIR' => '/tmp/runtime-www-data',
-            // Optionnel : si tu as mis un cache fontconfig custom
-            // 'XDG_CACHE_HOME'  => $this->projectDir . '/.cache',
+            // 'XDG_CACHE_HOME'  => $this->projectDir . '/.cache', // si tu l’utilises
         ];
 
-        $process = new Process($cmd, null, $env, null, 60);
+        // On donne le HTML directement en entrée du process
+        $process = new Process($cmd, null, $env, $html, 60);
         $process->run();
 
-        @unlink($tmpHtml);
-
         if (!$process->isSuccessful()) {
-            // remonte l'erreur wkhtmltopdf telle quelle
+            // remonte l'info d'erreur réelle
             throw new ProcessFailedException($process);
         }
 
@@ -83,7 +76,6 @@ final class PdfRenderer
 
     public function renderTemplateToPdf(string $template, array $context = [], ?string $outputAbsolutePath = null): string
     {
-        // public_path est injecté dans renderHtml()
         return $this->renderToPdf($this->renderHtml($template, $context), $outputAbsolutePath);
     }
 }
